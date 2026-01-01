@@ -23,6 +23,9 @@ variable "instance_type" {
 variable "key_location" {
   description = "The location of the SSH public key"
 }
+variable "private_key_location" {
+  description = "The location of the SSH private key"
+}
 
 variable "route_cidr" {
   description = "The destination CIDR block for the route"
@@ -143,12 +146,25 @@ resource "aws_instance" "myapp-server" {
   key_name = aws_key_pair.ssh-key.key_name
 
 # Commands to run at boot time
-  user_data = file("entry-script.sh")
+#   user_data = file("entry-script.sh") #best practice to use user data scripts for initial setup
+provisioner "remote-exec" {
+    inline = [
+        file("entry-script.sh")
+    ]
+  }
+  connection {
+    type        = "ssh"
+    host       = self.public_ip
+    user       = "ec2-user"
+    private_key = file(var.private_key_location)
+  }
 
   tags = {
     Name = "${var.env_prefix}-instance"
   }
 }
+
+
 
 # Associate Route Table with Subnet
 /*resource "aws_route_table_association" "myapp-subnet-association" {
