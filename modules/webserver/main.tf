@@ -56,7 +56,7 @@ resource "aws_instance" "myapp-server" {
   associate_public_ip_address = true
   key_name = aws_key_pair.ssh-key.key_name
 
-  user_data = file("${path.module}/entry-script.sh") #best practice to use user data scripts for initial setup
+  user_data = file("entry-script.sh") #best practice to use user data scripts for initial setup
 
   tags = {
     Name = "${var.env_prefix}-instance"
