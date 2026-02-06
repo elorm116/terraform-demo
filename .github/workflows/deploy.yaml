@@ -1,0 +1,42 @@
+name: CI/CD Deploy
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Apply
+        id: terraform
+        run: |
+          terraform init
+          terraform apply -auto-approve
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # Extract the IP from Terraform output
+      - name: Get Instance IP
+        run: echo "INSTANCE_IP=$(terraform output -raw server_public_ip)" >> $GITHUB_ENV
+
+      # The "Wait" logic (Professional version)
+      - name: Wait for SSH
+        run: |
+          echo "Waiting for SSH on ${{ env.INSTANCE_IP }}..."
+          timeout 300 bash -c 'until printf "" 2>>/dev/null >/dev/tcp/$0/$1; do sleep 5; done' ${{ env.INSTANCE_IP }} 22
+
+      - name: Run Ansible Playbook
+        run: |
+          # Create the private key file from GitHub Secrets
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 400 private_key.pem
+          
+          ansible-playbook -i ${{ env.INSTANCE_IP }}, \
+            --private-key private_key.pem \
+            -u ec2-user \
+            ansible-project/ec2-server-config/docker-deploy.yaml
